@@ -1,0 +1,29 @@
+{
+  "name": "associator",
+  "version": "1.0.0",
+  "description": "Associate file extensions an application",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha test/**/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nteract/associator.git"
+  },
+  "keywords": [
+    "associate",
+    "file",
+    "extensions",
+    "xdg",
+    "xdg-mime"
+  ],
+  "author": "nteract contributors",
+  "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/nteract/associator/issues"
+  },
+  "homepage": "https://github.com/nteract/associator#readme",
+  "dependencies": {
+    "tmp": "0.0.28"
+  }
+}
