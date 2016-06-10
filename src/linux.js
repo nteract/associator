@@ -81,7 +81,7 @@ function xdgAssociate(mimetype, desktopFile, allUsers) {
  * @param  {object} app - Well formed app object, see index.js
  * @return {string}
  */
-function desktopFileTemplate(app) {
+function desktopFileTemplate(app, mimetypes) {
   let contents = ['[Desktop Entry]'];
   contents.push('Version=1.0');
   contents.push(`Type=Application`);
@@ -91,12 +91,12 @@ function desktopFileTemplate(app) {
   if (app.launchPath) contents.push(`Path=${app.launchPath}`);
   if (app.icon) contents.push(`Icon=${app.icon}`);
   if (app.launchInTerminal) contents.push(`Terminal=${app.launchInTerminal}`);
-  if (app.mimetypes) contents.push(`MimeType=${app.mimetypes.join(';')};`);
+  if (mimetypes) contents.push(`MimeType=${Object.keys(mimetypes).join(';')};`);
   if (app.categories) contents.push(`Categories=${app.categories.join(';')};`);
   return contents.join('\n');
 }
 
-function desktopFile(app, allUsers, uninstall) {
+function desktopFile(app, mimetypes, allUsers, uninstall) {
   const localInstall = expandHomeDir('~/.local/share/applications');
   const globalInstall = '/usr/share/applications';
   const path = path.join(allUsers ? globalInstall : localInstall, getDesktopFilename(app));
@@ -111,7 +111,7 @@ function desktopFile(app, allUsers, uninstall) {
     if (uninstall) {
       rimraf(path, promiseCallback);
     } else {
-      fs.writeFile(path, desktopFileTemplate(app), promiseCallback);
+      fs.writeFile(path, desktopFileTemplate(app, mimetypes), promiseCallback);
     }
   });
 }

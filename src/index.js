@@ -6,101 +6,111 @@ const OSX = 'darwin';
 const Windows = 'windows_nt';
 const Linux = 'linux';
 
-function appObject(name, description, launchCmd, launchPath, icon, windowsIcon, mimetypes, launchInTerminal=false, categories=['Utility', 'Application', 'Development']) {
-  return {
-    name,
-    description,
-    launchCmd,
-    launchPath,
-    icon,
-    windowsIcon,
-    mimetypes,
-    launchInTerminal,
-    categories,
+// App object definition for reference
+const emptyApp = {
+  name: null,
+  description: null,
+  launchCmd: null,
+  launchPath: null,
+  icon: null,
+  windowsIcon: null,
+  launchInTerminal: null,
+  categories: null,
+};
+
+function stripGlob(globPattern) {
+  return globPattern[0] === '*' ? globPattern.slice(1) : globPattern;
+}
+
+function isAssociated(app, mimetypes) {
+  switch (osType) {
+    case Linux:
+      const linux = require('./linux');
+      return Promise.all(Object.keys(mimetypes).map(mimetype =>
+        linux.xdgGetAssociation(mimetype)
+          .then(associate => associate === linux.getDesktopFilename(app))
+          .catch(err => false)
+      )).then(x => x.every(y => y));
+    
+    case Windows:
+      const windows = require('./windows')
+      const extensions = Object.keys(mimetypes).map(mimetype => stripGlob(mimetypes[mimetype]));
+      return Promise.all(extensions.map(extension => windows.query(`HKCR\\${extension}`)
+        .then(associate => associate.value === app.name)
+        .catch(err => false)
+      ).concat([
+        windows.query(`HKCR\\${app.name}`)
+          .then(x => x.value === app.description)
+          .catch(err => false)
+      ])).then(x => x.every(y => y));
+    
+    default:
+      throw new Error('platform not supported');
   }
 }
 
-function registerApp(app, allUsers) {
-  select (osType) {
+function associate(app, mimetypes, allUsers) {
+  switch (osType) {
     case Linux:
       const linux = require('./linux');
-      return linux.desktopFile(app, allUsers, false);
+      return linux.desktopFile(app, mimetypes, allUsers, false)
+        .then(() => Promise.all(Object.keys(mimetypes).map(mimetype =>
+          linux.xdgMimetype(mimetype, mimetypes[mimetype], description, allUsers, false)
+            .then(() => linux.xdgAssociate(mimetype, linux.getDesktopFilename(app), allUsers))
+        )));
+
     case Windows:
-      const windows = require('./windows');
+      const windows = require('./windows')
+      const extensions = Object.keys(mimetypes).map(mimetype => stripGlob(mimetypes[mimetype]));
+      
+      let launchCmd = `${app.launchCmd} %1`;
+      
+      // Windows doesn't support the notion of a launch working dir, so hack
+      // around it by using the START command.  This has the unpleasent side
+      // effect of leaving a cmd window open.
+      if (app.launchPath) {
+        launchCmd = `cmd.exe /C start \\"\\" /D ${app.launchPath} /B ${launchCmd}`;
+      }
+      
       return windows.add(`HKCR\\${app.name}`, app.description, true)
         .then(() => windows.add(`HKCR\\${app.name}\\DefaultIcon`, app.windowsIcon || app.icon, true))
-        .then(() => windows.add(`HKCR\\${app.name}\\shell\\Open\\Command `, `${app.launchCmd} %1`, true));
-    case default:
+        .then(() => windows.add(`HKCR\\${app.name}\\shell\\Open\\Command `, launchCmd, true))
+        .then(() => Promise.all(extensions.map(extension =>
+          windows.add(`HKCR\\${extension}`, app.name, true)
+        )))
+        .then(() => windows.flushElevated());
+    default:
       throw new Error('platform not supported');
   }
 }
 
-function unregisterApp(app, allUsers) {
-  select (osType) {
+
+function unassociate(app, mimetypes, allUsers) {
+  switch (osType) {
     case Linux:
       const linux = require('./linux');
-      return linux.desktopFile(app, allUsers, true);
-    case Windows:
-      const windows = require('./windows');
-      return windows.delete(`HKCR\\${app.name}`);
-    case default:
-      throw new Error('platform not supported');
-  }
-}
-
-const mimespoof = {};
-
-function registerMimetype(mimetype, globPattern, description, allUsers) {
-  select (osType) {
-    case Linux:
-      const linux = require('./linux');
-      return linux.xdgMimetype(mimetype, globPattern, description, allUsers, false);
-    case Windows:
-      mimespoof[mimetype] = globPattern[0] === '*' ? globPattern.slice(1) : globPattern;
-      return Promise.resolve();
-    case default:
-      throw new Error('platform not supported');
-  }
-}
-
-function unregisterMimetype(mimetype, allUsers) {
-  select (osType) {
-    case Linux:
-      const linux = require('./linux');
-      return linux.xdgMimetype(mimetype, globPattern, '', allUsers, true);
-    case Windows:
-      delete mimespoof[mimetype];
-      return Promise.resolve();
-    case default:
-      throw new Error('platform not supported');
-  }
-}
-
-function isAssociated(app, mimetype) {
-  select (osType) {
-    case Linux:
-      const linux = require('./linux');
-      return linux.xdgGetAssociation(mimetype)
-        .then(associate => associate === linux.getDesktopFilename(app));
+      return linux.desktopFile(app, mimetypes, allUsers, true)
+        .then(() => Promise.all(Object.keys(mimetypes).map(mimetype =>
+          linux.xdgMimetype(mimetype, mimetypes[mimetype], description, allUsers, true)
+        )));
+    
     case Windows:
       const windows = require('./windows')
-      return window.query(`HKCR\\${mimespoof[mimetype]}`)
-        .then(associate => associate === app.name)
-        .catch(err => false);
-    case default:
+      const extensions = Object.keys(mimetypes).map(mimetype => stripGlob(mimetypes[mimetype]));
+      return windows.delete(`HKCR\\${app.name}`)
+        .then(() => Promise.all(extensions.map(extension => 
+          windows.delete(`HKCR\\${extension}`)
+        )))
+        .then(() => windows.flushElevated());
+        
+    default:
       throw new Error('platform not supported');
   }
 }
 
-function associate(app, mimetype, allUsers) {
-  select (osType) {
-    case Linux:
-      const linux = require('./linux');
-      return linux.xdgAssociate(mimetype, linux.getDesktopFilename(app), allUsers);
-    case Windows:
-      const windows = require('./windows')
-      return window.add(`HKCR\\${mimespoof[mimetype]}`, app.name, true);
-    case default:
-      throw new Error('platform not supported');
-  }
-}
+module.exports = {
+  emptyApp,
+  isAssociated,
+  associate,
+  unassociate,
+};
