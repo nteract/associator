@@ -87,7 +87,7 @@ function desktopFileTemplate(app) {
   contents.push(`Type=Application`);
   if (app.name) contents.push(`Name=${app.name}`);
   if (app.description) contents.push(`Comment=${app.description}`);
-  if (app.launchCmd) contents.push(`Exec=${app.launchCmd}`);
+  if (app.launchCmd) contents.push(`Exec=${app.launchCmd} %F`);
   if (app.launchPath) contents.push(`Path=${app.launchPath}`);
   if (app.icon) contents.push(`Icon=${app.icon}`);
   if (app.launchInTerminal) contents.push(`Terminal=${app.launchInTerminal}`);

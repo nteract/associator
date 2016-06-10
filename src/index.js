@@ -2,17 +2,18 @@
 
 const os = require('os');
 const osType = os.type().toLowerCase();
-const isOsx = osType === 'darwin';
-const isWindows = osType === 'windows_nt';
-const isLinux = osType === 'linux';
+const OSX = 'darwin';
+const Windows = 'windows_nt';
+const Linux = 'linux';
 
-function appObject(name, description, launchCmd, launchPath, icon, mimetypes, launchInTerminal=false, categories=['Utility', 'Application', 'Development']) {
+function appObject(name, description, launchCmd, launchPath, icon, windowsIcon, mimetypes, launchInTerminal=false, categories=['Utility', 'Application', 'Development']) {
   return {
     name,
     description,
     launchCmd,
     launchPath,
     icon,
+    windowsIcon,
     mimetypes,
     launchInTerminal,
     categories,
@@ -20,50 +21,86 @@ function appObject(name, description, launchCmd, launchPath, icon, mimetypes, la
 }
 
 function registerApp(app, allUsers) {
-  if (isLinux) {
-    const linux = require('./linux');
-    return linux.desktopFile(app, allUsers, false);
+  select (osType) {
+    case Linux:
+      const linux = require('./linux');
+      return linux.desktopFile(app, allUsers, false);
+    case Windows:
+      const windows = require('./windows');
+      return windows.add(`HKCR\\${app.name}`, app.description, true)
+        .then(() => windows.add(`HKCR\\${app.name}\\DefaultIcon`, app.windowsIcon || app.icon, true))
+        .then(() => windows.add(`HKCR\\${app.name}\\shell\\Open\\Command `, `${app.launchCmd} %1`, true));
+    case default:
+      throw new Error('platform not supported');
   }
-  throw new Error('platform not supported');
 }
 
 function unregisterApp(app, allUsers) {
-  if (isLinux) {
-    const linux = require('./linux');
-    return linux.desktopFile(app, allUsers, true);
+  select (osType) {
+    case Linux:
+      const linux = require('./linux');
+      return linux.desktopFile(app, allUsers, true);
+    case Windows:
+      const windows = require('./windows');
+      return windows.delete(`HKCR\\${app.name}`);
+    case default:
+      throw new Error('platform not supported');
   }
-  throw new Error('platform not supported');
 }
 
+const mimespoof = {};
+
 function registerMimetype(mimetype, globPattern, description, allUsers) {
-  if (isLinux) {
-    const linux = require('./linux');
-    return linux.xdgMimetype(mimetype, globPattern, description, allUsers, false);
+  select (osType) {
+    case Linux:
+      const linux = require('./linux');
+      return linux.xdgMimetype(mimetype, globPattern, description, allUsers, false);
+    case Windows:
+      mimespoof[mimetype] = globPattern[0] === '*' ? globPattern.slice(1) : globPattern;
+      return Promise.resolve();
+    case default:
+      throw new Error('platform not supported');
   }
-  throw new Error('platform not supported');
 }
 
 function unregisterMimetype(mimetype, allUsers) {
-  if (isLinux) {
-    const linux = require('./linux');
-    return linux.xdgMimetype(mimetype, globPattern, '', allUsers, true);
+  select (osType) {
+    case Linux:
+      const linux = require('./linux');
+      return linux.xdgMimetype(mimetype, globPattern, '', allUsers, true);
+    case Windows:
+      delete mimespoof[mimetype];
+      return Promise.resolve();
+    case default:
+      throw new Error('platform not supported');
   }
-  throw new Error('platform not supported');
 }
 
 function isAssociated(app, mimetype) {
-  if (isLinux) {
-    const linux = require('./linux');
-    return linux.xdgGetAssociation(mimetype)
-      .then(associate => associate === linux.getDesktopFilename(app));
+  select (osType) {
+    case Linux:
+      const linux = require('./linux');
+      return linux.xdgGetAssociation(mimetype)
+        .then(associate => associate === linux.getDesktopFilename(app));
+    case Windows:
+      const windows = require('./windows')
+      return window.query(`HKCR\\${mimespoof[mimetype]}`)
+        .then(associate => associate === app.name)
+        .catch(err => false);
+    case default:
+      throw new Error('platform not supported');
   }
-  throw new Error('platform not supported');
 }
 
 function associate(app, mimetype, allUsers) {
-  if (isLinux) {
-    const linux = require('./linux');
-    return linux.xdgAssociate(mimetype, linux.getDesktopFilename(app), allUsers);
+  select (osType) {
+    case Linux:
+      const linux = require('./linux');
+      return linux.xdgAssociate(mimetype, linux.getDesktopFilename(app), allUsers);
+    case Windows:
+      const windows = require('./windows')
+      return window.add(`HKCR\\${mimespoof[mimetype]}`, app.name, true);
+    case default:
+      throw new Error('platform not supported');
   }
-  throw new Error('platform not supported');
 }
