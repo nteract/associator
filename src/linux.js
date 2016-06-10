@@ -65,12 +65,13 @@ function xdgGetAssociation(mimetype) {
 
 function xdgAssociate(mimetype, desktopFile, allUsers) {
   return new Promise((resolve, reject) => {
-    const mode = allUsers ? ' --mode system' : '';
-    exec(`xdg-mime default${mode} ${desktopFile} ${mimetype}`, function(error, stdout, stderr) {
+    // All users not supported by the default command
+    // const mode = allUsers ? ' --mode system' : '';
+    exec(`xdg-mime default ${desktopFile} ${mimetype}`, function(error, stdout, stderr) {
       if (error !== null) {
         reject(error);
       } else {
-        resolve();
+        resolve(stdout);
       }
     });
   });
@@ -93,13 +94,14 @@ function desktopFileTemplate(app, mimetypes) {
   if (app.launchInTerminal) contents.push(`Terminal=${app.launchInTerminal}`);
   if (mimetypes) contents.push(`MimeType=${Object.keys(mimetypes).join(';')};`);
   if (app.categories) contents.push(`Categories=${app.categories.join(';')};`);
+  // contents.push('X-DBUS-StartupType=none');
   return contents.join('\n');
 }
 
 function desktopFile(app, mimetypes, allUsers, uninstall) {
   const localInstall = expandHomeDir('~/.local/share/applications');
   const globalInstall = '/usr/share/applications';
-  const path = path.join(allUsers ? globalInstall : localInstall, getDesktopFilename(app));
+  const filePath = path.join(allUsers ? globalInstall : localInstall, getDesktopFilename(app));
   return new Promise((resolve, reject) => {
     function promiseCallback(err) {
       if (err) {
@@ -109,9 +111,9 @@ function desktopFile(app, mimetypes, allUsers, uninstall) {
       }
     }
     if (uninstall) {
-      rimraf(path, promiseCallback);
+      rimraf(filePath, promiseCallback);
     } else {
-      fs.writeFile(path, desktopFileTemplate(app, mimetypes), promiseCallback);
+      fs.writeFile(filePath, desktopFileTemplate(app, mimetypes), promiseCallback);
     }
   });
 }

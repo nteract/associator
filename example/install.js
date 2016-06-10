@@ -7,16 +7,15 @@ const mimetypes = {
   'application/x.associator-example': '*.assoctest',
 };
 const app = {
-  name: 'AssociatorExampleApp', 
-  description: 'Demonstration application, for file type associations', 
-  launchCmd: 'npm run start',
+  name: 'AssociatorExampleApp',
+  description: 'Demonstration application, for file type associations',
+  launchCmd: 'npm start',
   launchPath: __dirname, // basically like executing `cd` prior to the app
   icon: path.join(__dirname, 'icon.svg'), // generic icon
   windowsIcon: path.join(__dirname, 'icon.ico'),
   launchInTerminal: false,
-  categories: [ 
-    'Utility', 
-    'Application', 
+  categories: [
+    'Utility',
     'Development',
   ],
 }
