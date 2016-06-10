@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Associator Example App</title>
+  </head>
+  <body>
+    <img src='./icon.svg' /><br>
+    <div id='argv' />
+    <script type="text/javascript">
+        const {ipcRenderer} = require('electron');
+        ipcRenderer.on('argv', (e, argv) => 
+            document.querySelector('#argv').innerText = `You've opened "${argv.slice(2).toString()}"`
+        );
+    </script>
+  </body>
+</html>
