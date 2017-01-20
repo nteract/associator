@@ -26,9 +26,9 @@
   "dependencies": {
     "expand-home-dir": "0.0.3",
     "rimraf": "^2.5.2",
-    "tmp": "0.0.28"
+    "tmp": "0.0.31"
   },
   "optionalDependencies": {
-    "elevator": "^1.0.0"
+    "elevator": "^2.1.0"
   }
 }
